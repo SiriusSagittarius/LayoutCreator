@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Menü</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }</style>
+</head>
+<body class="p-8 flex justify-center">
+
+    <div class="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl border border-gray-200">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">🎨 Design Einstellungen</h1>
+            <div class="h-3 w-3 rounded-full bg-green-500 animate-pulse" title="Verbunden"></div>
+        </div>
+
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+            <label class="block text-sm font-bold text-gray-700 mb-2">
+                Runde Ecken (Border Radius)
+            </label>
+            <div class="flex items-center gap-4">
+                <input type="range" id="radius-slider" min="0" max="50" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                <span id="radius-val" class="text-sm font-mono w-12 text-right">0px</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Gilt für alle Boxen im Layout.</p>
+        </div>
+
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+            <label class="block text-sm font-bold text-gray-700 mb-2">
+                Inhalt Ausrichtung (Flex)
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="setAlign('flex-start')" class="border p-2 rounded hover:bg-blue-50 text-xs">Links</button>
+                <button onclick="setAlign('center')" class="border p-2 rounded hover:bg-blue-50 text-xs bg-blue-100 border-blue-300">Zentriert</button>
+                <button onclick="setAlign('flex-end')" class="border p-2 rounded hover:bg-blue-50 text-xs">Rechts</button>
+            </div>
+        </div>
+
+        <div class="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-100">
+            <h2 class="font-bold text-orange-800 mb-3 flex items-center gap-2">
+                🔘 Button Werkstatt
+            </h2>
+
+            <div class="mb-2">
+                <label class="text-xs font-bold text-gray-500">Beschriftung</label>
+                <input type="text" id="btn-text" value="Hier Klicken" class="w-full p-1 border rounded text-sm" oninput="updateBtnPreview()">
+            </div>
+
+            <div class="mb-2">
+                <label class="text-xs font-bold text-gray-500">Icon Typ</label>
+                <div class="flex gap-2">
+                    <select id="btn-icon-select" class="w-full p-1 border rounded text-sm bg-white" onchange="toggleIconInput(); updateBtnPreview()">
+                        <option value="">Kein Icon</option>
+                        <option value="google">🔷 Google Material Icon</option>
+                        <option value="🛒">🛒 Warenkorb</option>
+                        <option value="📧">📧 Mail</option>
+                        <option value="👤">👤 User</option>
+                        <option value="✅">✅ Check</option>
+                        <option value="❤️">❤️ Herz</option>
+                        <option value="⭐">⭐ Stern</option>
+                        <option value="➡️">➡️ Pfeil</option>
+                        <option value="📞">📞 Telefon</option>
+                        <option value="custom">🖼️ Bild URL...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="google-icon-input" class="hidden mb-2 p-2 bg-blue-50 rounded border border-blue-100">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-xs font-bold text-blue-800">Icon Name</label>
+                    <a href="https://fonts.google.com/icons?selected=Material+Icons" target="_blank" class="text-[10px] text-blue-600 underline">Icon suchen ↗</a>
+                </div>
+                <input type="text" id="btn-google-name" placeholder="z.B. shopping_cart" class="w-full p-1 border rounded text-sm" oninput="updateBtnPreview()">
+                <p class="text-[10px] text-gray-400 mt-1">Namen auf der Webseite kopieren und hier einfügen.</p>
+            </div>
+
+            <div id="custom-icon-input" class="hidden mb-2">
+                <input type="text" id="btn-icon-url" placeholder="https://..." class="w-full p-1 border rounded text-sm" oninput="updateBtnPreview()">
+            </div>
+
+            <div class="mb-2">
+                 <label class="text-xs font-bold text-gray-500">Icon Größe (px)</label>
+                 <input type="number" id="btn-icon-size" value="20" class="w-20 p-1 border rounded text-sm" oninput="updateBtnPreview()">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Farbe</label>
+                    <input type="color" id="btn-color" value="#3b82f6" class="w-full h-8 cursor-pointer" oninput="updateBtnPreview()">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Text Farbe</label>
+                    <input type="color" id="btn-text-color" value="#ffffff" class="w-full h-8 cursor-pointer" oninput="updateBtnPreview()">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-xs font-bold text-gray-500">Stil-Art</label>
+                <select id="btn-style" class="w-full p-1 border rounded text-sm bg-white" onchange="updateBtnPreview()">
+                    <option value="flat">Flach (Flat)</option>
+                    <option value="gradient">Verlauf (Modern)</option>
+                    <option value="3d">3D Effekt</option>
+                    <option value="outline">Nur Rahmen (Outline)</option>
+                    <option value="pill">Pille (Rund)</option>
+                </select>
+            </div>
+
+            <div class="bg-white p-4 border border-dashed border-gray-300 rounded flex justify-center items-center mb-3 h-20">
+                <button id="btn-preview-el" class="px-6 py-2 transition-all flex items-center justify-center gap-2">Hier Klicken</button>
+            </div>
+
+            <button onclick="sendCustomButton()" class="w-full bg-orange-500 text-white font-bold py-2 rounded shadow hover:bg-orange-600 transition">
+                Diesen Button einfügen 🚀
+            </button>
+        </div>
+
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <label class="block text-sm font-bold text-blue-800 mb-2">
+                🖼️ Logo / Bild einfügen
+            </label>
+            <input type="file" id="logo-upload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 mb-2">
+            <button onclick="sendLogoToCanvas()" class="w-full bg-blue-600 text-white font-bold py-2 rounded shadow hover:bg-blue-700 transition">
+                Auf Canvas senden
+            </button>
+        </div>
+
+        <div class="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
+            <label class="block text-sm font-bold text-purple-800 mb-2">
+                🧩 Fertige Bausteine
+            </label>
+            <div class="grid grid-cols-1 gap-2">
+                <button onclick="sendAction('createContact')" class="flex items-center justify-center gap-2 w-full bg-white border border-purple-200 text-purple-700 font-bold py-2 rounded hover:bg-purple-100 text-xs shadow-sm transition">
+                    📧 Kontakt-Formular
+                </button>
+                <button onclick="sendAction('createSocials')" class="flex items-center justify-center gap-2 w-full bg-white border border-purple-200 text-purple-700 font-bold py-2 rounded hover:bg-purple-100 text-xs shadow-sm transition">
+                    ❤️ Social Media Leiste
+                </button>
+            </div>
+        </div>
+
+        <hr class="my-6">
+        <button onclick="window.close()" class="w-full text-gray-400 text-sm hover:text-gray-600">Fenster schließen</button>
+    </div>
+
+    <script>
+        let settings = {
+            radius: 0,
+            justifyContent: 'center'
+        };
+
+        const saved = localStorage.getItem('layoutGlobalSettings');
+        if(saved) {
+            settings = JSON.parse(saved);
+            document.getElementById('radius-slider').value = settings.radius;
+            document.getElementById('radius-val').textContent = settings.radius + 'px';
+        }
+
+        function updateLayout() {
+            localStorage.setItem('layoutGlobalSettings', JSON.stringify(settings));
+        }
+
+        const slider = document.getElementById('radius-slider');
+        const valDisplay = document.getElementById('radius-val');
+
+        slider.addEventListener('input', (e) => {
+            const px = e.target.value;
+            valDisplay.textContent = px + 'px';
+            settings.radius = px;
+            updateLayout(); 
+        });
+
+        function setAlign(val) {
+            settings.justifyContent = val;
+            updateLayout();
+        }
+
+        function sendLogoToCanvas() {
+            const input = document.getElementById('logo-upload');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    localStorage.setItem('layoutGlobalLogoAdd', JSON.stringify({
+                        src: e.target.result,
+                        timestamp: Date.now() 
+                    }));
+                    alert("Logo wurde an Layout gesendet!");
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                alert("Bitte erst ein Bild auswählen.");
+            }
+        }
+
+        function sendAction(actionName) {
+            localStorage.setItem('layoutGlobalAction', JSON.stringify({
+                action: actionName,
+                timestamp: Date.now() 
+            }));
+        }
+
+        function toggleIconInput() {
+            const val = document.getElementById('btn-icon-select').value;
+            const googleInput = document.getElementById('google-icon-input');
+            const customInput = document.getElementById('custom-icon-input');
+            
+            googleInput.classList.add('hidden');
+            customInput.classList.add('hidden');
+
+            if(val === 'google') {
+                googleInput.classList.remove('hidden');
+            } else if (val === 'custom') {
+                customInput.classList.remove('hidden');
+            }
+        }
+
+        function updateBtnPreview() {
+            const text = document.getElementById('btn-text').value;
+            const color = document.getElementById('btn-color').value;
+            const textColor = document.getElementById('btn-text-color').value;
+            const style = document.getElementById('btn-style').value;
+            const btn = document.getElementById('btn-preview-el');
+            
+            const iconType = document.getElementById('btn-icon-select').value;
+            const iconSize = document.getElementById('btn-icon-size').value;
+            
+            let iconHTML = '';
+            
+            if (iconType === 'google') {
+                const googleName = document.getElementById('btn-google-name').value || 'face'; 
+                iconHTML = `<span class="material-icons" style="font-size: ${iconSize}px; vertical-align: middle;">${googleName}</span>`;
+            } else if (iconType === 'custom') {
+                const url = document.getElementById('btn-icon-url').value;
+                if(url) {
+                    iconHTML = `<img src="${url}" style="height:${iconSize}px; width:auto; vertical-align:middle;">`;
+                }
+            } else if (iconType) {
+                iconHTML = `<span style="font-size: ${iconSize}px; vertical-align: middle;">${iconType}</span>`;
+            }
+
+            btn.innerHTML = (iconHTML ? iconHTML + ' ' : '') + text;
+
+            btn.style.color = textColor;
+            btn.style.border = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.borderRadius = '4px';
+            btn.style.fontWeight = 'bold';
+            btn.style.transform = 'none';
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.justifyContent = 'center';
+            btn.style.gap = '8px';
+
+            if (style === 'flat') {
+                btn.style.backgroundColor = color;
+            } 
+            else if (style === 'gradient') {
+                btn.style.background = `linear-gradient(135deg, ${color}, ${adjustColor(color, -40)})`;
+            }
+            else if (style === '3d') {
+                btn.style.backgroundColor = color;
+                btn.style.boxShadow = `0 4px 0 ${adjustColor(color, -60)}`;
+                btn.style.marginBottom = '4px'; 
+                btn.style.borderRadius = '6px';
+            }
+            else if (style === 'outline') {
+                btn.style.backgroundColor = 'transparent';
+                btn.style.border = `2px solid ${color}`;
+                btn.style.color = color;
+            }
+            else if (style === 'pill') {
+                btn.style.backgroundColor = color;
+                btn.style.borderRadius = '999px';
+            }
+        }
+
+        function adjustColor(color, amount) {
+            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+        }
+
+        function sendCustomButton() {
+            const btn = document.getElementById('btn-preview-el');
+            
+            const buttonData = {
+                text: btn.innerHTML, 
+                styleStr: btn.getAttribute('style'), 
+                timestamp: Date.now()
+            };
+
+            localStorage.setItem('layoutGlobalButtonAdd', JSON.stringify(buttonData));
+            alert("Button gesendet!");
+        }
+
+        updateBtnPreview();
+    </script>
+</body>
+</html>

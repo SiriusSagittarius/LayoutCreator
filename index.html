@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout Baukasten Pro v2.7 (Clean)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: auto; 
+        }
+
+        #toolbar-container {
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+            background-color: #f7f9fb;
+            padding: 0.75rem;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        #layout-canvas {
+            width: 1440px; 
+            height: 1200px; 
+            background-color: #ffffff;
+            position: relative; 
+            margin: 20px auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            flex-shrink: 0; 
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+            transition: background-color 0.2s;
+        }
+
+        #layout-canvas.drag-over {
+            background-color: #e0f2fe;
+            border: 2px dashed #3b82f6;
+        }
+
+        #margin-guides {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 0;
+            pointer-events: none; 
+            z-index: 50;
+            border-left: 0px solid rgba(255, 99, 71, 0.4);
+            border-right: 0px solid rgba(255, 99, 71, 0.4);
+            box-sizing: border-box;
+        }
+
+        .layout-element {
+            position: absolute; 
+            cursor: grab;
+            box-sizing: border-box; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            user-select: none;
+            background-size: cover;
+            background-position: center;
+            overflow: visible; 
+        }
+        
+        .layout-element.is-full-width {
+            border-left: 3px solid #10b981 !important; 
+            border-right: 3px solid #10b981 !important;
+        }
+
+        .layout-element:active {
+            cursor: grabbing;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        .layout-element:hover {
+            outline: 2px solid #3b82f6; 
+            z-index: 900;
+        }
+
+        .info-badge {
+            position: absolute;
+            top: -22px; 
+            left: 0;
+            background: #333; 
+            color: #fff;
+            font-size: 10px;
+            padding: 3px 6px;
+            font-family: monospace;
+            border-radius: 4px;
+            pointer-events: none;
+            white-space: nowrap; 
+            width: max-content; 
+            z-index: 99999; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        dialog {
+            border: none;
+            border-radius: 12px;
+            padding: 0; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh; 
+        }
+        
+        dialog[open] {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-content {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 15px 30px;
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+
+        .nav-btn {
+			padding: 10px 20px;
+			background-color: rgba(255,255,255,0.2);
+			color: inherit;
+			text-decoration: none;
+			border-radius: 4px;
+			font-weight: bold;
+			border: 1px solid rgba(255,255,255,0.4);
+			transition: background 0.2s;
+            text-align: center;
+		}
+		.nav-btn:hover {
+			background-color: rgba(255,255,255,0.4);
+		}
+
+        #loading-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            z-index: 3000;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        
+        .align-btn.active {
+            background-color: #dbeafe; 
+            border-color: #3b82f6; 
+            color: #1e40af; 
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="text-xl font-bold text-gray-700">Bild wird verarbeitet...</div>
+    </div>
+
+    <div id="toolbar-container">
+        <div class="flex flex-wrap gap-3 items-center bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+            
+            <div class="flex items-center space-x-2 border-r border-gray-300 pr-3 mr-1 bg-yellow-50 p-1 rounded">
+                <span class="text-xs font-bold text-yellow-600 uppercase">Seite:</span>
+                <select id="page-select" onchange="switchPage(this.value)" class="p-1 border border-yellow-300 rounded text-sm bg-white font-bold text-gray-700 min-w-[80px]">
+                    <option value="index">Startseite</option>
+                </select>
+                <button onclick="createNewPage()" title="Neue Seite" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold px-2 rounded text-sm">+</button>
+                <button onclick="deletePage()" title="Seite löschen" class="text-red-400 hover:text-red-600 font-bold px-1 text-xs">x</button>
+            </div>
+
+            <div class="flex items-center space-x-2 border-r border-gray-300 pr-3 mr-1">
+                <span class="text-xs font-bold text-gray-500 uppercase">Canvas:</span>
+                <input type="number" id="canvas-width-input" value="1440" class="w-16 p-1 border rounded text-sm text-center" onchange="updateCanvasSettings()">
+                <span class="text-gray-400">x</span>
+                <input type="number" id="canvas-height-input" value="1200" class="w-16 p-1 border rounded text-sm text-center" onchange="updateCanvasSettings()">
+            </div>
+
+            <div class="flex items-center space-x-2 border-r border-gray-300 pr-3 mr-1 bg-red-50 p-1 rounded">
+                <span class="text-xs font-bold text-red-500 uppercase">Rand:</span>
+                <input type="number" id="margin-input" value="0" min="0" class="w-14 p-1 border border-red-200 rounded text-sm text-center" onchange="updateCanvasSettings()">
+            </div>
+
+            <button id="create-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded transition text-sm">
+                ➕ Neu
+            </button>
+            <button onclick="createNavi()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-3 rounded transition text-sm ml-2">
+				🧭 Navi
+			</button>
+
+            <div class="flex gap-2 border-l border-gray-300 pl-3 ml-1">
+                <button onclick="downloadJSON()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-1.5 px-3 rounded text-sm">💾 JSON</button>
+                 <label class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-1.5 px-3 rounded cursor-pointer text-sm">
+                    📂 Laden
+                    <input type="file" id="json-upload" class="hidden" accept=".json" onchange="uploadLayout(this)">
+                </label>
+            </div>
+
+            <button onclick="exportHTML()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-3 rounded transition flex items-center gap-2 border border-indigo-500 text-sm shadow-sm">
+                🏗️ HTML Export
+            </button>
+
+            <a href="menu.html" target="_blank" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-1.5 px-3 rounded transition flex items-center gap-2 text-sm ml-2">
+                ⚙️ Menü
+            </a>
+
+            <button onclick="clearCanvas()" class="text-red-500 hover:bg-red-50 ml-auto font-bold py-1.5 px-3 rounded text-sm">🗑️</button>
+        </div>
+    </div>
+    
+    <div id="status-message" class="text-center text-xs text-gray-400 mt-1">Version 2.7 - Clean. Ziehe ein Bild direkt auf den Canvas!</div>
+
+    <div id="layout-canvas">
+        <div id="margin-guides"></div>
+    </div>
+
+    <dialog id="config-modal">
+		<form id="config-form" style="display:contents;">
+            <div class="modal-content">
+                <h3 id="modal-title" class="text-xl font-semibold mb-4 text-gray-800">Element bearbeiten</h3>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Breite (px)</label>
+                        <input type="number" id="width" required min="10" 
+                            class="w-full text-xl font-bold text-gray-800 p-2 border-2 border-gray-300 rounded focus:border-blue-500 focus:outline-none text-center bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Höhe (px)</label>
+                        <input type="number" id="height" required min="10" 
+                            class="w-full text-xl font-bold text-gray-800 p-2 border-2 border-gray-300 rounded focus:border-blue-500 focus:outline-none text-center bg-gray-50">
+                    </div>
+                </div>
+
+                <hr class="my-3 border-gray-200">
+
+                <div class="mb-3 p-2 bg-yellow-50 rounded border border-yellow-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="font-bold text-sm text-yellow-800">🔗 Link setzen:</label>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-gray-600 cursor-pointer">Sichtbar?</label>
+                            <input type="checkbox" id="is-visible" checked class="w-4 h-4 accent-blue-600">
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="link-url" placeholder="https://... oder seite.html" class="flex-1 p-1 border rounded text-sm">
+                        <select id="page-link-select" onchange="applyPageLink(this.value)" class="w-1/3 p-1 border rounded text-sm bg-white text-gray-700 font-bold" title="Wähle eine deiner Seiten">
+                            <option value="">Seite wählen...</option>
+                        </select>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1">Wähle eine Seite aus der Liste oder tippe eine URL ein.</p>
+                </div>
+
+                <div class="mt-3 mb-3 p-2 bg-indigo-50 rounded border border-indigo-100 flex items-center justify-between">
+                    <div>
+                        <label class="font-bold text-sm text-indigo-800 cursor-pointer" for="is-container">🧲 Container-Modus</label>
+                        <p class="text-[10px] text-gray-500">Wenn aktiv: Bewegt Inhalt beim Verschieben mit.</p>
+                    </div>
+                    <input type="checkbox" id="is-container" class="w-5 h-5 accent-indigo-600 cursor-pointer">
+                </div>
+
+                <div class="mb-3">
+                    <button type="button" onclick="document.getElementById('align-menu').classList.toggle('hidden')" 
+                            class="w-full bg-blue-50 text-blue-700 font-bold py-1 px-2 rounded border border-blue-200 text-sm flex justify-between items-center hover:bg-blue-100">
+                        <span>📐 Ausrichtung & Inhalt</span>
+                        <span>▼</span>
+                    </button>
+
+                    <div id="align-menu" class="hidden mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-sm">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Anordnung:</label>
+                        <div class="flex gap-2 mb-3">
+                            <button type="button" onclick="setFlexDir('row')" id="btn-row" class="align-btn flex-1 bg-white border p-1 rounded hover:bg-gray-100 active:bg-blue-100">Nebeneinander ➡️</button>
+                            <button type="button" onclick="setFlexDir('column')" id="btn-col" class="align-btn flex-1 bg-white border p-1 rounded hover:bg-gray-100 active:bg-blue-100">Untereinander ⬇️</button>
+                            <input type="hidden" id="flex-direction" value="row">
+                        </div>
+
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Horizontal (X):</label>
+                        <div class="flex gap-1 mb-3">
+                            <button type="button" onclick="setJustify('flex-start')" data-val="flex-start" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Links</button>
+                            <button type="button" onclick="setJustify('center')" data-val="center" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Mitte</button>
+                            <button type="button" onclick="setJustify('flex-end')" data-val="flex-end" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Rechts</button>
+                            <button type="button" onclick="setJustify('space-between')" data-val="space-between" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50 text-xs">Verteilt</button>
+                            <input type="hidden" id="justify-content" value="center">
+                        </div>
+
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Vertikal (Y):</label>
+                        <div class="flex gap-1">
+                            <button type="button" onclick="setAlignItems('flex-start')" data-val="flex-start" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Oben</button>
+                            <button type="button" onclick="setAlignItems('center')" data-val="center" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Mitte</button>
+                            <button type="button" onclick="setAlignItems('flex-end')" data-val="flex-end" class="align-btn flex-1 border bg-white p-1 rounded hover:bg-gray-50">Unten</button>
+                            <input type="hidden" id="align-items" value="center">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <button type="button" onclick="document.getElementById('btn-workshop').classList.toggle('hidden')" 
+                            class="w-full bg-orange-50 text-orange-700 font-bold py-1 px-2 rounded border border-orange-200 text-sm flex justify-between items-center hover:bg-orange-100">
+                        <span>🔘 Button Werkstatt</span>
+                        <span>▼</span>
+                    </button>
+
+                    <div id="btn-workshop" class="hidden mt-2 p-3 bg-orange-50 rounded border border-orange-200 text-sm">
+                        <div class="mb-2">
+                            <label class="text-xs font-bold text-gray-500">Beschriftung</label>
+                            <input type="text" id="ws-btn-text" value="Klick mich" class="w-full p-1 border rounded text-sm" oninput="updateWsBtnPreview()">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div><label class="text-xs">Farbe</label><input type="color" id="ws-btn-color" value="#3b82f6" class="w-full h-6" oninput="updateWsBtnPreview()"></div>
+                            <div><label class="text-xs">Text</label><input type="color" id="ws-btn-text-color" value="#ffffff" class="w-full h-6" oninput="updateWsBtnPreview()"></div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="text-xs font-bold text-gray-500">Stil</label>
+                            <select id="ws-btn-style" class="w-full p-1 border rounded text-sm" onchange="updateWsBtnPreview()">
+                                <option value="flat">Flach</option>
+                                <option value="gradient">Verlauf</option>
+                                <option value="3d">3D Effekt</option>
+                                <option value="outline">Rahmen</option>
+                                <option value="pill">Rund</option>
+                            </select>
+                        </div>
+                        <div class="bg-white p-2 border border-dashed rounded flex justify-center mb-2">
+                            <button id="ws-btn-preview" type="button" class="px-4 py-1 text-sm pointer-events-none">Vorschau</button>
+                        </div>
+                        <button type="button" onclick="applyWsButtonToElement()" class="w-full bg-orange-500 text-white font-bold py-1 rounded shadow hover:bg-orange-600 text-xs">
+                            Anwenden
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div class="input-group"><label>Text:</label><input type="text" id="content-text" class="w-full border rounded p-1"></div>
+                    <div class="input-group"><label>Bild URL:</label><input type="text" id="bg-image" class="w-full border rounded p-1"></div>
+                </div>
+
+                <div class="mb-4 p-2 bg-gray-50 border rounded">
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Schrift-Stil</label>
+                    <div class="flex gap-2 items-center">
+                        <select id="font-family" class="w-1/2 p-1 border rounded text-sm bg-white">
+                            <option value="'Inter', sans-serif">Standard (Inter)</option>
+                            <option value="'Raleway', sans-serif">Raleway</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Courier New', monospace">Courier</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="'Times New Roman', serif">Times</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                            <option value="Impact, sans-serif">Impact</option>
+                        </select>
+                        <input type="number" id="font-size" value="14" class="w-16 p-1 border rounded text-sm text-center" title="Größe (px)">
+                        
+						<label class="cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 font-bold" title="Fett">
+                            B <input type="checkbox" id="font-bold" class="hidden">
+                        </label>
+                        <label class="cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 italic" title="Kursiv">
+                            I <input type="checkbox" id="font-italic" class="hidden">
+                        </label>
+                        <label class="cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 underline" title="Unterstrichen">
+                            U <input type="checkbox" id="font-underline" class="hidden">
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="input-group mb-2">
+                    <label class="font-bold text-blue-600 text-xs">Oder Bild Upload:</label>
+                    <input type="file" id="img-file-input" accept="image/*" class="text-xs">
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-4 bg-gray-50 p-2 rounded">
+                    <div><label class="text-xs block">Hintergrund</label><input type="color" id="bg-color" class="h-8 w-12 cursor-pointer"></div>
+                    <div><label class="text-xs block">Text</label><input type="color" id="text-color" class="h-8 w-12 cursor-pointer"></div>
+                    <div><label class="text-xs block">Rand</label><input type="color" id="border-color" class="h-8 w-12 cursor-pointer"></div>
+                    <div><label class="text-xs block">Rand (px)</label><input type="number" id="border-width" min="0" class="w-12 h-8 border text-center"></div>
+                    <div><label class="text-xs block">Ebene (Z)</label><input type="number" id="z-index" value="1" class="w-12 h-8 border text-center"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <div class="flex space-x-2">
+                    <button type="button" id="delete-btn" class="hidden px-3 py-2 text-white bg-red-500 hover:bg-red-600 rounded text-xs font-bold">LÖSCHEN</button>
+                    <button type="button" id="copy-btn" class="hidden px-3 py-2 text-white bg-indigo-500 hover:bg-indigo-600 rounded text-xs font-bold">KOPIEREN</button>
+                </div>
+                <div class="flex space-x-2">
+                    <button type="button" id="close-modal" class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded font-medium">Abbrechen</button>
+                    <button type="submit" id="submit-btn" class="px-6 py-2 text-white bg-green-600 hover:bg-green-700 rounded font-bold shadow-lg transform active:scale-95 transition">SPEICHERN</button>
+                </div>
+            </div>
+		</form>
+    </dialog>
+	<dialog id="navi-modal" class="bg-white rounded-xl shadow-2xl p-0 max-w-md w-full backdrop:bg-black/50">
+		<form id="navi-form" method="dialog" class="flex flex-col h-full">
+			<div class="p-4 border-b bg-teal-50 flex justify-between items-center">
+				<h3 class="font-bold text-teal-800 text-lg">🧭 Navi Generator</h3>
+				<button type="button" onclick="document.getElementById('navi-modal').close()" class="text-gray-400 hover:text-gray-600">✕</button>
+			</div>
+
+			<div class="p-6 space-y-4 overflow-y-auto">
+				
+				<div>
+					<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Anordnung</label>
+					<div class="grid grid-cols-3 gap-2">
+						<button type="button" onclick="setNaviPreset('row')" class="navi-type-btn bg-teal-100 text-teal-800 border-teal-300 border rounded p-2 text-xs font-bold hover:bg-teal-200 active:bg-teal-300 transition">
+							➡️ Reihe
+						</button>
+						<button type="button" onclick="setNaviPreset('col')" class="navi-type-btn bg-white text-gray-600 border-gray-300 border rounded p-2 text-xs font-bold hover:bg-gray-50">
+							⬇️ Spalte
+						</button>
+						<button type="button" onclick="setNaviPreset('grid')" class="navi-type-btn bg-white text-gray-600 border-gray-300 border rounded p-2 text-xs font-bold hover:bg-gray-50">
+							▦ Raster
+						</button>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded border border-gray-200">
+					<div>
+						<label class="block text-xs text-gray-500 mb-1">Spalten (X)</label>
+						<input type="number" id="navi-cols" value="4" min="1" class="w-full p-1 border rounded text-center font-bold text-gray-700">
+					</div>
+					<div>
+						<label class="block text-xs text-gray-500 mb-1">Reihen (Y)</label>
+						<input type="number" id="navi-rows" value="1" min="1" class="w-full p-1 border rounded text-center font-bold text-gray-700">
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Gap / Abstand X</label>
+						<input type="number" id="navi-gap-x" value="10" min="0" class="w-full p-2 border rounded text-center">
+					</div>
+					<div>
+						<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Gap / Abstand Y</label>
+						<input type="number" id="navi-gap-y" value="10" min="0" class="w-full p-2 border rounded text-center">
+					</div>
+				</div>
+
+				<hr>
+
+				<div>
+					<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Stil & Größe</label>
+					<select id="navi-style" class="w-full p-2 border rounded mb-2 bg-white">
+						<option value="button">🟦 Buttons (Blau)</option>
+						<option value="text">abc Nur Text (Links)</option>
+						<option value="outline">⬜ Rahmen (Outline)</option>
+					</select>
+					
+					<div class="flex gap-2">
+						<div class="flex-1">
+							<label class="text-[10px] text-gray-400">Breite (px)</label>
+							<input type="number" id="navi-width" value="120" class="w-full p-1 border rounded text-sm">
+						</div>
+						<div class="flex-1">
+							<label class="text-[10px] text-gray-400">Höhe (px)</label>
+							<input type="number" id="navi-height" value="40" class="w-full p-1 border rounded text-sm">
+						</div>
+					</div>
+				</div>
+
+			</div>
+
+			<div class="p-4 border-t bg-gray-50 flex justify-end gap-2">
+				<button type="button" onclick="document.getElementById('navi-modal').close()" class="px-4 py-2 rounded text-gray-600 text-sm hover:bg-gray-200">Abbrechen</button>
+				<button type="button" onclick="generateNavi()" class="px-6 py-2 rounded bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 shadow">Erstellen</button>
+			</div>
+		</form>
+	</dialog>
+    <script>
+        let appState = { elements: {}, canvasWidth: 1440, canvasHeight: 1200, marginPx: 0 };
+        let elementCounter = 0;
+        let currentEditingId = null;
+        let currentPage = 'index'; 
+
+        const layoutCanvas = document.getElementById('layout-canvas');
+        const marginGuides = document.getElementById('margin-guides');
+        const configModal = document.getElementById('config-modal');
+        const configForm = document.getElementById('config-form');
+        const statusMessage = document.getElementById('status-message');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const canvasWInput = document.getElementById('canvas-width-input');
+        const canvasHInput = document.getElementById('canvas-height-input');
+        const marginInput = document.getElementById('margin-input');
+        const imgFileInput = document.getElementById('img-file-input');
+        
+        const createBtn = document.getElementById('create-btn');
+        const closeModal = document.getElementById('close-modal');
+        const deleteBtn = document.getElementById('delete-btn');
+        const copyBtn = document.getElementById('copy-btn');
+
+        function updateWsBtnPreview() {
+            const text = document.getElementById('ws-btn-text').value;
+            const color = document.getElementById('ws-btn-color').value;
+            const textColor = document.getElementById('ws-btn-text-color').value;
+            const style = document.getElementById('ws-btn-style').value;
+            const btn = document.getElementById('ws-btn-preview');
+
+            btn.textContent = text;
+            btn.style.color = textColor;
+            btn.style.border = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.borderRadius = '4px';
+            btn.style.fontWeight = 'bold';
+            btn.style.background = 'none';
+
+            if (style === 'flat') btn.style.backgroundColor = color;
+            else if (style === 'gradient') btn.style.background = `linear-gradient(135deg, ${color}, ${adjustColor(color, -40)})`;
+            else if (style === '3d') {
+                btn.style.backgroundColor = color;
+                btn.style.boxShadow = `0 4px 0 ${adjustColor(color, -60)}`;
+                btn.style.marginBottom = '4px';
+                btn.style.borderRadius = '6px';
+            }
+            else if (style === 'outline') {
+                btn.style.border = `2px solid ${color}`;
+                btn.style.color = color;
+            }
+            else if (style === 'pill') {
+                btn.style.backgroundColor = color;
+                btn.style.borderRadius = '999px';
+            }
+        }
+
+        function adjustColor(color, amount) {
+            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+        }
+
+        function applyWsButtonToElement() {
+            if (!currentEditingId) return;
+            const btn = document.getElementById('ws-btn-preview');
+            const btnHTML = `<button style="${btn.getAttribute('style')}; width: 100%; height: 100%; cursor: pointer;">${btn.textContent}</button>`;
+            
+            appState.elements[currentEditingId].htmlContent = btnHTML;
+            appState.elements[currentEditingId].bgImage = ''; 
+            appState.elements[currentEditingId].text = ''; 
+            
+            updateElementStyle(document.getElementById(currentEditingId), appState.elements[currentEditingId]);
+            alert("Button Style angewendet! Klicke 'Speichern' um zu bestätigen.");
+        }
+
+        window.setFlexDir = function(dir) {
+            document.getElementById('flex-direction').value = dir;
+            document.getElementById('btn-row').className = dir === 'row' ? 'flex-1 bg-blue-200 border border-blue-400 p-1 rounded font-bold' : 'flex-1 bg-white border p-1 rounded hover:bg-gray-100';
+            document.getElementById('btn-col').className = dir === 'column' ? 'flex-1 bg-blue-200 border border-blue-400 p-1 rounded font-bold' : 'flex-1 bg-white border p-1 rounded hover:bg-gray-100';
+        }
+        
+        window.setJustify = function(val) { 
+            document.getElementById('justify-content').value = val;
+            document.querySelectorAll('#align-menu button[onclick^="setJustify"]').forEach(b => {
+                b.classList.remove('active', 'bg-blue-100', 'border-blue-500', 'text-blue-800');
+                if(b.getAttribute('data-val') === val) b.classList.add('active', 'bg-blue-100', 'border-blue-500', 'text-blue-800');
+            });
+        }
+        
+        window.setAlignItems = function(val) { 
+            document.getElementById('align-items').value = val; 
+            document.querySelectorAll('#align-menu button[onclick^="setAlignItems"]').forEach(b => {
+                b.classList.remove('active', 'bg-blue-100', 'border-blue-500', 'text-blue-800');
+                if(b.getAttribute('data-val') === val) b.classList.add('active', 'bg-blue-100', 'border-blue-500', 'text-blue-800');
+            });
+        }
+        
+        window.applyPageLink = function(val) {
+            if(!val) return;
+            document.getElementById('link-url').value = val + '.html';
+        };
+
+        configForm.onsubmit = async (e) => {
+			e.preventDefault();
+			
+			let finalBgImage = document.getElementById('bg-image').value;
+			if (imgFileInput.files && imgFileInput.files[0]) {
+				finalBgImage = await processImage(imgFileInput.files[0]);
+			}
+
+            const isBold = document.getElementById('font-bold').checked;
+            const isItalic = document.getElementById('font-italic').checked;
+            const isUnderline = document.getElementById('font-underline').checked;
+
+			const formData = {
+				width: parseInt(document.getElementById('width').value),
+				height: parseInt(document.getElementById('height').value),
+				text: document.getElementById('content-text').value,
+				bgImage: finalBgImage,
+				bgColor: document.getElementById('bg-color').value,
+				textColor: document.getElementById('text-color').value,
+				borderColor: document.getElementById('border-color').value,
+				borderWidth: parseInt(document.getElementById('border-width').value),
+				zIndex: parseInt(document.getElementById('z-index').value),
+				
+				linkUrl: document.getElementById('link-url').value,
+				isContainer: document.getElementById('is-container').checked,
+				isVisible: document.getElementById('is-visible').checked,
+				flexDirection: document.getElementById('flex-direction').value,
+				justifyContent: document.getElementById('justify-content').value,
+				alignItems: document.getElementById('align-items').value,
+
+                fontFamily: document.getElementById('font-family').value,
+                fontSize: parseInt(document.getElementById('font-size').value) || 14,
+                fontWeight: isBold ? 'bold' : 'normal',
+                fontStyle: isItalic ? 'italic' : 'normal',
+                textDecoration: isUnderline ? 'underline' : 'none'
+			};
+			
+			
+
+			if (currentEditingId) {
+				appState.elements[currentEditingId] = { ...appState.elements[currentEditingId], ...formData };
+				const el = document.getElementById(currentEditingId);
+				updateElementStyle(el, appState.elements[currentEditingId]);
+				updateBadgeText(el, formData.width, formData.height, appState.elements[currentEditingId].left, appState.elements[currentEditingId].top);
+			} else {
+				elementCounter++;
+				const newId = 'el-' + elementCounter;
+				const left = Math.abs(layoutCanvas.getBoundingClientRect().x) + appState.marginPx + 20;
+				const top = 100;
+
+				appState.elements[newId] = { 
+					id: newId, top, left, 
+					...formData 
+				};
+				createDOMElement(appState.elements[newId]);
+			}
+			
+			saveLocal();
+			renderAll(); 
+			configModal.close();
+		};
+
+        function openEditModal(id) {
+			currentEditingId = id;
+			const data = appState.elements[id];
+			
+			document.getElementById('modal-title').textContent = "Element bearbeiten";
+			document.getElementById('submit-btn').textContent = "Speichern";
+			
+			document.getElementById('width').value = data.width;
+			document.getElementById('height').value = data.height;
+			document.getElementById('content-text').value = data.text || '';
+			document.getElementById('bg-image').value = data.bgImage || '';
+			imgFileInput.value = '';
+			document.getElementById('bg-color').value = data.bgColor;
+			document.getElementById('text-color').value = data.textColor;
+			document.getElementById('border-color').value = data.borderColor;
+			document.getElementById('border-width').value = data.borderWidth;
+			document.getElementById('z-index').value = data.zIndex || 1;
+			document.getElementById('link-url').value = data.linkUrl || '';
+			document.getElementById('is-visible').checked = (data.isVisible !== false);
+			document.getElementById('is-container').checked = (data.isContainer === true);
+
+			document.getElementById('font-family').value = data.fontFamily || "'Raleway', sans-serif";
+            document.getElementById('font-size').value = data.fontSize || 14;
+            document.getElementById('font-bold').checked = (data.fontWeight === 'bold');
+            document.getElementById('font-italic').checked = (data.fontStyle === 'italic');
+            document.getElementById('font-underline').checked = (data.textDecoration === 'underline');
+
+            document.getElementById('font-bold').parentElement.className = 
+                (data.fontWeight === 'bold') ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 font-bold' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 font-bold';
+            
+            document.getElementById('font-italic').parentElement.className = 
+                (data.fontStyle === 'italic') ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 italic' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 italic';
+
+            document.getElementById('font-underline').parentElement.className = 
+                (data.textDecoration === 'underline') ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 underline' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 underline';
+
+            document.getElementById('font-bold').onchange = (e) => {
+                 e.target.parentElement.className = e.target.checked ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 font-bold' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 font-bold';
+            };
+            document.getElementById('font-italic').onchange = (e) => {
+                 e.target.parentElement.className = e.target.checked ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 italic' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 italic';
+            };
+            document.getElementById('font-underline').onchange = (e) => {
+                 e.target.parentElement.className = e.target.checked ? 'cursor-pointer bg-blue-100 border border-blue-300 p-1 rounded px-2 underline' : 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 underline';
+            };
+
+			const fd = data.flexDirection || 'row';
+            window.setFlexDir(fd); 
+            window.setJustify(data.justifyContent || 'center');
+            window.setAlignItems(data.alignItems || 'center');
+            
+            const linkSelect = document.getElementById('page-link-select');
+            linkSelect.innerHTML = '<option value="">Seite wählen...</option>';
+            if (appState.pages) {
+                Object.keys(appState.pages).forEach(pageName => {
+                    const opt = document.createElement('option');
+                    opt.value = pageName;
+                    opt.textContent = pageName;
+                    linkSelect.appendChild(opt);
+                });
+            }
+
+            updateWsBtnPreview();
+
+			document.getElementById('align-menu').classList.add('hidden');
+            document.getElementById('btn-workshop').classList.add('hidden');
+
+			deleteBtn.classList.remove('hidden');
+			copyBtn.classList.remove('hidden');
+			configModal.showModal();
+		}
+
+        createBtn.onclick = () => {
+            currentEditingId = null;
+            configForm.reset();
+            document.getElementById('modal-title').textContent = "Neues Element";
+            document.getElementById('submit-btn').textContent = "Hinzufügen";
+            document.getElementById('width').value = 200;
+            document.getElementById('height').value = 150;
+            document.getElementById('bg-color').value = "#e2e8f0";
+            document.getElementById('text-color').value = "#000000";
+            document.getElementById('border-color').value = "#94a3b8";
+            document.getElementById('border-width').value = 1;
+            document.getElementById('z-index').value = 1;
+            document.getElementById('flex-direction').value = 'row';
+            
+            document.getElementById('font-family').value = "'Inter', sans-serif";
+            document.getElementById('font-size').value = 14;
+            document.getElementById('font-bold').checked = false;
+            document.getElementById('font-italic').checked = false;
+            document.getElementById('font-bold').parentElement.className = 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 font-bold';
+            document.getElementById('font-italic').parentElement.className = 'cursor-pointer bg-white border p-1 rounded hover:bg-gray-100 px-2 italic';
+
+            window.setFlexDir('row');
+            window.setJustify('center');
+            window.setAlignItems('center');
+
+            document.getElementById('align-menu').classList.add('hidden');
+            document.getElementById('btn-workshop').classList.add('hidden');
+            deleteBtn.classList.add('hidden');
+            copyBtn.classList.add('hidden');
+            configModal.showModal();
+        };
+
+        closeModal.onclick = () => configModal.close();
+
+        deleteBtn.onclick = () => {
+            if (currentEditingId && appState.elements[currentEditingId]) {
+                if (confirm("Wirklich löschen?")) {
+                    const el = document.getElementById(currentEditingId);
+                    if(el) el.remove();
+                    delete appState.elements[currentEditingId];
+                    saveLocal();
+                    configModal.close();
+                }
+            } else {
+                configModal.close();
+            }
+        };
+
+        copyBtn.onclick = () => {
+            if (!currentEditingId) return;
+            const orig = appState.elements[currentEditingId];
+            
+            let elementsToCopy = [orig];
+
+            const parentRect = {
+                l: orig.left,
+                r: orig.left + orig.width,
+                t: orig.top,
+                b: orig.top + orig.height
+            };
+            const parentZ = parseInt(orig.zIndex) || 1;
+
+            Object.values(appState.elements).forEach(child => {
+                if (child.id === orig.id) return; 
+
+                const childZ = parseInt(child.zIndex) || 1;
+                if (childZ <= parentZ) return;
+
+                const childCX = child.left + (child.width / 2);
+                const childCY = child.top + (child.height / 2);
+
+                if (childCX >= parentRect.l && childCX <= parentRect.r &&
+                    childCY >= parentRect.t && childCY <= parentRect.b) {
+                    
+                    elementsToCopy.push(child);
+                }
+            });
+
+            elementsToCopy.forEach(elData => {
+                elementCounter++;
+                const newId = 'el-' + elementCounter;
+                const copy = { ...elData, id: newId, top: elData.top + 20, left: elData.left + 20 };
+                appState.elements[newId] = copy;
+                createDOMElement(copy);
+            });
+
+            saveLocal();
+            configModal.close();
+            statusMessage.textContent = `${elementsToCopy.length} Elemente kopiert!`;
+        };
+
+        let activeEl = null;
+        let diffX = 0;
+        let diffY = 0;
+        let lastDragX = 0;
+        let lastDragY = 0;
+
+        function makeDraggable(el) { el.addEventListener('mousedown', dragStart); }
+
+        function dragStart(e) {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+            e.preventDefault(); 
+            
+            activeEl = e.currentTarget;
+            
+            const rect = activeEl.getBoundingClientRect();
+            diffX = e.clientX - rect.left;
+            diffY = e.clientY - rect.top;
+            
+            const canvasRect = layoutCanvas.getBoundingClientRect();
+            lastDragX = e.clientX - canvasRect.left - diffX;
+            lastDragY = e.clientY - canvasRect.top - diffY;
+
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragStop);
+        }
+
+        function dragMove(e) {
+            if (!activeEl) return;
+            const canvasRect = layoutCanvas.getBoundingClientRect();
+            
+            let newLeft = e.clientX - canvasRect.left - diffX;
+            let newTop = e.clientY - canvasRect.top - diffY;
+
+            newLeft = Math.max(0, Math.min(newLeft, appState.canvasWidth - activeEl.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, appState.canvasHeight - activeEl.offsetHeight));
+            
+            const snap = 10;
+            if(appState.marginPx > 0) {
+                 if (Math.abs(newLeft - appState.marginPx) < snap) newLeft = appState.marginPx;
+                 const rEdge = appState.canvasWidth - appState.marginPx - activeEl.offsetWidth;
+                 if (Math.abs(newLeft - rEdge) < snap) newLeft = rEdge;
+            }
+            if (Math.abs(appState.canvasWidth - activeEl.offsetWidth) < 10) {
+                if(newLeft < 10) newLeft = 0; 
+            }
+
+            const deltaX = newLeft - lastDragX;
+            const deltaY = newTop - lastDragY;
+
+            const activeData = appState.elements[activeEl.id];
+
+            if (activeData.isContainer && (deltaX !== 0 || deltaY !== 0)) {
+                
+                const parentRect = {
+                    l: lastDragX,
+                    r: lastDragX + activeData.width,
+                    t: lastDragY,
+                    b: lastDragY + activeData.height
+                };
+                
+                const parentZ = parseInt(activeData.zIndex) || 1;
+
+                Object.values(appState.elements).forEach(child => {
+                    if (child.id === activeData.id) return; 
+
+                    const childZ = parseInt(child.zIndex) || 1;
+                    if (childZ <= parentZ) return;
+
+                    const childCX = child.left + (child.width / 2);
+                    const childCY = child.top + (child.height / 2);
+
+                    if (childCX >= parentRect.l && childCX <= parentRect.r &&
+                        childCY >= parentRect.t && childCY <= parentRect.b) {
+                        
+                        child.left += deltaX;
+                        child.top += deltaY;
+                        
+                        const childEl = document.getElementById(child.id);
+                        if(childEl) {
+                            childEl.style.left = child.left + 'px';
+                            childEl.style.top = child.top + 'px';
+                            updateBadgeText(childEl, child.width, child.height, child.left, child.top);
+                        }
+                    }
+                });
+            }
+
+            activeEl.style.left = newLeft + 'px';
+            activeEl.style.top = newTop + 'px';
+            
+            lastDragX = newLeft;
+            lastDragY = newTop;
+
+            updateBadgeText(activeEl, activeEl.offsetWidth, activeEl.offsetHeight, newLeft, newTop);
+        }
+
+        function dragStop() {
+            if (activeEl) {
+                const id = activeEl.id;
+                appState.elements[id].left = parseFloat(activeEl.style.left);
+                appState.elements[id].top = parseFloat(activeEl.style.top);
+                saveLocal();
+                if(appState.elements[id].width >= appState.canvasWidth - 10) activeEl.classList.add('is-full-width');
+                else activeEl.classList.remove('is-full-width');
+                activeEl = null;
+            }
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragStop);
+        }
+
+        function renderAll() {
+            document.querySelectorAll('.layout-element').forEach(el => el.remove());
+            Object.values(appState.elements).forEach(data => createDOMElement(data));
+        }
+
+        function createDOMElement(data) {
+            const el = document.createElement('div');
+            el.className = 'layout-element';
+            el.id = data.id;
+            
+            const badge = document.createElement('div');
+            badge.className = 'info-badge';
+            el.appendChild(badge);
+
+            if (data.width >= (appState.canvasWidth - 10)) {
+                el.classList.add('is-full-width');
+                el.title = "Full Width";
+            }
+
+            updateElementStyle(el, data);
+            updateBadgeText(el, data.width, data.height, data.left, data.top);
+
+            makeDraggable(el);
+            el.addEventListener('dblclick', (e) => { e.stopPropagation(); openEditModal(data.id); });
+            layoutCanvas.appendChild(el);
+			applyLiveSettings();
+        }
+
+        function updateElementStyle(el, data) {
+			el.style.width = data.width + 'px';
+			el.style.height = data.height + 'px';
+			el.style.top = data.top + 'px';
+			el.style.left = data.left + 'px';
+			el.style.backgroundColor = data.bgColor;
+			el.style.color = data.textColor;
+			el.style.zIndex = data.zIndex || 1;
+			el.style.border = data.borderWidth > 0 ? `${data.borderWidth}px solid ${data.borderColor}` : 'none';
+			
+			el.style.display = 'flex';
+			el.style.flexDirection = data.flexDirection || 'row';
+			el.style.justifyContent = data.justifyContent || 'center';
+			el.style.alignItems = data.alignItems || 'center';
+            el.style.gap = '10px'; 
+
+            el.style.fontFamily = data.fontFamily || "'Inter', sans-serif";
+            el.style.fontSize = (data.fontSize || 14) + 'px';
+            el.style.fontWeight = data.fontWeight || 'normal';
+            el.style.fontStyle = data.fontStyle || 'normal';
+            el.style.textDecoration = data.textDecoration || 'none';
+			if (data.isVisible === false) {
+				el.style.opacity = '0.4';
+				el.style.border = '2px dashed red'; 
+			} else {
+				el.style.opacity = '1';
+				if(data.borderWidth === 0) el.style.border = 'none'; 
+			}
+			if (data.isContainer) {
+                el.style.cursor = 'move'; 
+                el.title = "🧲 Container (zieht Inhalt mit)";
+            }
+			if (data.linkUrl && data.linkUrl.length > 0) {
+				el.setAttribute('title', 'Link zu: ' + data.linkUrl);
+				el.style.cursor = 'alias'; 
+			} else {
+				el.style.cursor = 'grab';
+			}
+
+            if (data.htmlContent) {
+                const existingBadge = el.querySelector('.info-badge');
+                el.innerHTML = data.htmlContent; 
+                if(existingBadge) el.appendChild(existingBadge);
+                else {
+                    const badge = document.createElement('div');
+                    badge.className = 'info-badge';
+                    el.appendChild(badge);
+                }
+                el.style.backgroundImage = 'none';
+            } 
+			else if (data.bgImage) {
+				el.style.backgroundImage = `url('${data.bgImage}')`;
+				let textNode = Array.from(el.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+				if(textNode) textNode.textContent = '';
+			} else {
+				el.style.backgroundImage = 'none';
+				let textNode = Array.from(el.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+				if(textNode) {
+					textNode.textContent = data.text || '';
+				} else {
+					el.appendChild(document.createTextNode(data.text || ''));
+				}
+			}
+		}
+
+        function updateBadgeText(el, w, h, x, y) {
+            const badge = el.querySelector('.info-badge');
+            if(badge) {
+                badge.textContent = `${Math.round(w)}x${Math.round(h)} | P:${Math.round(x)},${Math.round(y)}`;
+            }
+        }
+
+        window.createNavi = function() {
+            document.getElementById('navi-modal').showModal();
+        };
+
+        window.setNaviPreset = function(type) {
+            document.querySelectorAll('.navi-type-btn').forEach(btn => {
+                btn.className = 'navi-type-btn bg-white text-gray-600 border-gray-300 border rounded p-2 text-xs font-bold hover:bg-gray-50';
+            });
+            event.target.className = 'navi-type-btn bg-teal-100 text-teal-800 border-teal-300 border rounded p-2 text-xs font-bold hover:bg-teal-200';
+
+            const colsInput = document.getElementById('navi-cols');
+            const rowsInput = document.getElementById('navi-rows');
+
+            if (type === 'row') {
+                colsInput.value = 4;
+                rowsInput.value = 1;
+            } else if (type === 'col') {
+                colsInput.value = 1;
+                rowsInput.value = 4;
+            } else if (type === 'grid') {
+                colsInput.value = 3;
+                rowsInput.value = 2;
+            }
+        };
+
+		window.generateNavi = function() {
+            const cols = parseInt(document.getElementById('navi-cols').value) || 1;
+            const rows = parseInt(document.getElementById('navi-rows').value) || 1;
+            const gapX = parseInt(document.getElementById('navi-gap-x').value) || 0;
+            const gapY = parseInt(document.getElementById('navi-gap-y').value) || 0;
+            const w = parseInt(document.getElementById('navi-width').value) || 120;
+            const h = parseInt(document.getElementById('navi-height').value) || 40;
+            const style = document.getElementById('navi-style').value;
+
+            const startX = appState.marginPx + 50;
+            const startY = 100;
+
+            const totalWidth = (cols * w) + ((cols - 1) * gapX);
+            const totalHeight = (rows * h) + ((rows - 1) * gapY);
+            
+            const padding = 10; 
+
+            elementCounter++;
+            const containerId = 'el-' + elementCounter;
+
+            const containerEl = {
+                id: containerId,
+                top: startY - padding,
+                left: startX - padding,
+                width: totalWidth + (padding * 2),
+                height: totalHeight + (padding * 2),
+                bgColor: 'rgba(0, 0, 0, 0.03)', 
+                textColor: '#000000',
+                borderColor: '#cbd5e1', 
+                borderWidth: 1, 
+                text: '',
+                bgImage: '',
+                linkUrl: '',
+                zIndex: 50,         
+                isContainer: true,  
+                isVisible: true,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center'
+            };
+
+            appState.elements[containerId] = containerEl;
+            createDOMElement(containerEl);
+
+            let createdCount = 0;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    elementCounter++;
+                    createdCount++;
+                    const newId = 'el-' + elementCounter;
+
+                    const posX = startX + (c * (w + gapX));
+                    const posY = startY + (r * (h + gapY));
+
+                    let bgColor = '#3b82f6';
+                    let textColor = '#ffffff';
+                    let borderColor = 'transparent';
+                    let borderWidth = 0;
+                    let text = 'Link ' + createdCount;
+                    let fontWeight = 'normal';
+
+                 
+                    if (style === 'text') {
+                        bgColor = 'transparent';
+                        textColor = '#000000';
+                        fontWeight = 'bold'; 
+                    } else if (style === 'outline') {
+                        bgColor = 'white'; 
+                        textColor = '#3b82f6';
+                        borderColor = '#3b82f6';
+                        borderWidth = 2;
+                    }
+
+                    const newEl = {
+                        id: newId,
+                        top: posY,
+                        left: posX,
+                        width: w,
+                        height: h,
+                        bgColor: bgColor,
+                        textColor: textColor,
+                        borderColor: borderColor,
+                        borderWidth: borderWidth,
+                        
+                        text: text,          
+                        htmlContent: '',     
+                        linkUrl: '#',
+                        
+                        zIndex: 10, 
+                        isVisible: true,
+                        isContainer: false,
+                        
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontFamily: "'Raleway', sans-serif",
+                        fontSize: 24,
+                        fontWeight: fontWeight,
+                        fontStyle: "normal",
+                        textDecoration: "none"  
+                    };
+
+                    appState.elements[newId] = newEl;
+                    createDOMElement(newEl);
+                }
+            }
+
+            saveLocal();
+            document.getElementById('navi-modal').close();
+            statusMessage.textContent = `Navi-Gruppe mit ${createdCount} Elementen erstellt!`;
+        };
+        window.createContactForm = function() {
+            elementCounter++;
+            const newId = 'el-' + elementCounter;
+            const formHTML = `
+                <div style="width:100%; height:100%; padding: 20px; display:flex; flex-direction:column; justify-content:center;">
+                    <h3 class="font-bold text-gray-700 mb-4 text-xl">Kontaktieren uns</h3>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 text-left">Dein Name:</label>
+                    <input type="text" class="w-full p-2 mb-3 border border-gray-300 rounded focus:outline-none focus:border-green-500">
+                    <label class="block text-xs font-bold text-gray-500 mb-1 text-left">Deine E-Mail:</label>
+                    <input type="email" class="w-full p-2 mb-3 border border-gray-300 rounded focus:outline-none focus:border-green-500">
+                    <label class="block text-xs font-bold text-gray-500 mb-1 text-left">Deine Nachricht:</label>
+                    <textarea class="w-full p-2 mb-4 border border-gray-300 rounded h-24 focus:outline-none focus:border-green-500 resize-none"></textarea>
+                    <button class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700 transition shadow-sm">Abschicken</button>
+                </div>`;
+            const formEl = {
+                id: newId, top: 150, left: appState.marginPx + 100, width: 400, height: 450,
+                bgColor: '#e5e7eb', textColor: '#000000', borderColor: 'transparent', borderWidth: 0,
+                zIndex: 10, flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                text: '', htmlContent: formHTML
+            };
+            appState.elements[newId] = formEl;
+            createDOMElement(formEl);
+            saveLocal();
+            statusMessage.textContent = "Kontaktformular erstellt!";
+        };
+
+		window.createSocials = function() {
+            elementCounter++;
+            const newId = 'el-' + elementCounter;
+            
+            // Hier sind die SVG Pfade für die Logos (Facebook, Insta, Twitter/X, YouTube)
+            const iconFacebook = `<svg fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
+            
+            const iconInsta = `<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" class="w-4 h-4"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>`;
+            
+            const iconTwitter = `<svg fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>`;
+
+            const iconYoutube = `<svg fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+
+            const socialHTML = `
+                <div class="flex gap-3 justify-center items-center h-full w-full pointer-events-none">
+                    
+                    <a href="#" class="pointer-events-auto flex items-center gap-2 bg-[#1877F2] text-white px-3 py-2 rounded font-bold text-[10px] uppercase hover:opacity-90 no-underline shadow-sm transition">
+                        ${iconFacebook} <span>Facebook</span>
+                    </a>
+
+                    <a href="#" class="pointer-events-auto flex items-center gap-2 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white px-3 py-2 rounded font-bold text-[10px] uppercase hover:opacity-90 no-underline shadow-sm transition">
+                        ${iconInsta} <span>Insta</span>
+                    </a>
+
+                    <a href="#" class="pointer-events-auto flex items-center gap-2 bg-black text-white px-3 py-2 rounded font-bold text-[10px] uppercase hover:bg-gray-800 no-underline shadow-sm transition">
+                        ${iconTwitter} <span>X</span>
+                    </a>
+
+                    <a href="#" class="pointer-events-auto flex items-center gap-2 bg-[#FF0000] text-white px-3 py-2 rounded font-bold text-[10px] uppercase hover:opacity-90 no-underline shadow-sm transition">
+                        ${iconYoutube} <span>YouTube</span>
+                    </a>
+
+                </div>`;
+
+            const socialEl = {
+                id: newId, 
+                top: appState.canvasHeight - 150, 
+                left: appState.marginPx + 50, 
+                width: 550, // Etwas breiter für die 4 Buttons
+                height: 60,
+                bgColor: 'transparent', 
+                textColor: '#ffffff', 
+                borderColor: 'transparent', 
+                borderWidth: 0,
+                zIndex: 20, 
+                text: '', 
+                htmlContent: socialHTML,
+                
+                // Wichtig damit es beweglich bleibt
+                isContainer: false,
+                isVisible: true,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center'
+            };
+
+            appState.elements[newId] = socialEl;
+            createDOMElement(socialEl);
+            saveLocal();
+            statusMessage.textContent = "Prof. Social Buttons erstellt!";
+        };
+
+        function createCustomButtonFromMenu(data) {
+            elementCounter++;
+            const newId = 'el-' + elementCounter;
+            const btnHTML = `<button style="${data.styleStr}; width: 100%; height: 100%; cursor: pointer;">${data.text}</button>`;
+            const newEl = {
+                id: newId, top: 200, left: appState.marginPx + 150, width: 160, height: 50,
+                bgColor: 'transparent', textColor: '#000', borderColor: 'transparent', borderWidth: 0,
+                zIndex: 20, flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                text: '', htmlContent: btnHTML 
+            };
+            appState.elements[newId] = newEl;
+            createDOMElement(newEl);
+            saveLocal();
+            statusMessage.textContent = "Button aus Werkstatt eingefügt!";
+        }
+
+        window.createNewPage = function() {
+            const name = prompt("Name der neuen Seite (ohne .html):", "kontakt");
+            if (!name) return;
+            const cleanName = name.replace(/[^a-z0-9-_]/gi, '').toLowerCase();
+            if (appState.pages[cleanName]) {
+                alert("Diese Seite gibt es schon!");
+                return;
+            }
+            saveCurrentPageToState();
+            let newPageElements = {};
+            if (confirm("Soll Header und Footer von der Startseite übernommen werden?")) {
+                const indexPage = appState.pages['index'];
+                if (indexPage) {
+                    const headerLimit = 400; 
+                    const footerLimit = appState.canvasHeight - 600; 
+                    Object.values(indexPage).forEach(el => {
+                        if (el.top < headerLimit || el.top > footerLimit) {
+                            const copy = JSON.parse(JSON.stringify(el));
+                            newPageElements[copy.id] = copy;
+                        }
+                    });
+                }
+            }
+            appState.pages[cleanName] = newPageElements;
+            switchPage(cleanName);
+        };
+
+        window.switchPage = function(pageName) {
+            saveCurrentPageToState();
+            currentPage = pageName;
+            updatePageSelectUI();
+            appState.elements = appState.pages[currentPage] || {};
+            renderAll();
+            statusMessage.textContent = "Seite gewechselt: " + pageName;
+        };
+
+        window.deletePage = function() {
+            if (currentPage === 'index') {
+                alert("Die Startseite kann nicht gelöscht werden.");
+                return;
+            }
+            if (!confirm(`Seite "${currentPage}" wirklich löschen?`)) return;
+            delete appState.pages[currentPage];
+            switchPage('index');
+        };
+
+        function saveCurrentPageToState() {
+            appState.pages[currentPage] = JSON.parse(JSON.stringify(appState.elements));
+            saveLocal(); 
+        }
+
+        function updatePageSelectUI() {
+            const select = document.getElementById('page-select');
+            if(!select) return;
+            select.innerHTML = ''; 
+            Object.keys(appState.pages).forEach(pageName => {
+                const opt = document.createElement('option');
+                opt.value = pageName;
+                opt.textContent = pageName === 'index' ? 'Startseite (index)' : pageName;
+                if (pageName === currentPage) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyLiveSettings() {
+            const savedSettings = localStorage.getItem('layoutGlobalSettings');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                document.querySelectorAll('.layout-element').forEach(el => {
+                    el.style.borderRadius = (settings.radius || 0) + 'px';
+                });
+            }
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'layoutGlobalSettings') {
+                applyLiveSettings();
+            }
+            if (e.key === 'layoutGlobalLogoAdd' && e.newValue) {
+                const data = JSON.parse(e.newValue);
+                if (data.src) {
+                    addLogoFromMenu(data.src);
+                }
+            }
+            if (e.key === 'layoutGlobalAction' && e.newValue) {
+                const data = JSON.parse(e.newValue);
+                if (data.action === 'createContact') createContactForm();
+                if (data.action === 'createSocials') createSocials();
+            }
+            if (e.key === 'layoutGlobalButtonAdd' && e.newValue) {
+                const data = JSON.parse(e.newValue);
+                createCustomButtonFromMenu(data);
+            }
+        });
+
+        function addLogoFromMenu(base64Str) {
+            let img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                elementCounter++;
+                const newId = 'el-' + elementCounter;
+                const w = 300;
+                const h = (img.height / img.width) * w;
+                const startX = appState.marginPx + 50;
+                const startY = 100 + (elementCounter * 20);
+                const newEl = {
+                    id: newId, top: startY, left: startX, width: Math.round(w), height: Math.round(h),
+                    bgColor: 'transparent', textColor: '#000', borderColor: 'transparent', borderWidth: 0,
+                    text: '', bgImage: base64Str, zIndex: 10
+                };
+                appState.elements[newId] = newEl;
+                createDOMElement(newEl);
+                applyLiveSettings();
+                saveLocal();
+                statusMessage.textContent = "Logo aus Menü empfangen!";
+            }
+        }
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        async function processImage(file) {
+            loadingOverlay.style.display = 'flex';
+            try {
+                const base64Original = await toBase64(file);
+                return await resizeImage(base64Original, 1200);
+            } catch(e) {
+                console.error(e);
+                return null;
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function resizeImage(base64Str, maxWidth = 1000) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.src = base64Str;
+                img.onload = () => {
+                    let canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    let ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                }
+            });
+        }
+
+		window.exportHTML = function() {
+            const sortedElements = Object.values(appState.elements).sort((a, b) => a.top - b.top);
+            
+            if (sortedElements.length === 0) {
+                alert("Canvas ist leer!");
+                return;
+            }
+
+            const headerEl = sortedElements[0];
+            
+            let footerEl = null;
+            if (sortedElements.length > 1) {
+                footerEl = sortedElements[sortedElements.length - 1];
+            }
+
+            const mainElements = sortedElements.slice(1, sortedElements.length - 1);
+
+            let globalSettings = { radius: 0, justifyContent: 'center' };
+            const savedSettings = localStorage.getItem('layoutGlobalSettings');
+            if (savedSettings) {
+                globalSettings = JSON.parse(savedSettings);
+            }
+
+            let cssContent = `
+            body { 
+                margin: 0; 
+                padding: 0; 
+                background-color: #f0f0f0; 
+                display: flex; 
+                justify-content: center; 
+                min-height: 100vh; 
+                font-family: 'Inter', sans-serif; 
+            }
+            .main-container {
+                position: relative; 
+                width: ${appState.canvasWidth}px; 
+                height: ${appState.canvasHeight}px;
+                background-color: #ffffff; 
+                box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+                overflow: hidden; 
+                margin: 20px auto;
+                display: flex;
+                flex-direction: column; 
+            }
+            
+            main {
+                flex-grow: 1; 
+                position: static; 
+                width: 100%;
+            }
+
+            .element-box {
+                position: absolute; 
+                box-sizing: border-box;
+                display: flex;
+                align-items: center; 
+                overflow: hidden;
+                background-size: cover;
+                background-position: center;
+                border-radius: ${globalSettings.radius}px;
+                justify-content: ${globalSettings.justifyContent};
+            }
+            
+            .nav-btn {
+                padding: 10px 20px;
+                background-color: rgba(255,255,255,0.2);
+                color: inherit;
+                text-decoration: none;
+                border-radius: 4px;
+                font-weight: bold;
+                border: 1px solid rgba(255,255,255,0.4);
+                transition: background 0.2s;
+                text-align: center;
+            }
+            .nav-btn:hover {
+                background-color: rgba(255,255,255,0.4);
+            }
+            `;
+
+            function buildElementHTML(el, tagName) {
+                const hasLink = el.linkUrl && el.linkUrl.length > 0;
+                let startTag = `<${tagName} id="${el.id}" class="element-box">`;
+                let endTag = `</${tagName}>`;
+                
+                if (hasLink) {
+                     startTag = `<a href="${el.linkUrl}" target="_blank" style="text-decoration:none; display:block;">` + startTag;
+                     endTag = endTag + `</a>`;
+                }
+
+                const fontWeight = el.fontWeight || 'normal';
+                const fontStyle = el.fontStyle || 'normal';
+                const fontFamily = el.fontFamily || "'Inter', sans-serif";
+                const fontSize = el.fontSize ? el.fontSize + 'px' : '14px';
+
+                cssContent += `
+                #${el.id} {
+                    left: ${el.left}px; 
+                    top: ${el.top}px; 
+                    width: ${el.width}px; 
+                    height: ${el.height}px;
+                    background-color: ${el.bgColor};
+                    color: ${el.textColor};
+                    z-index: ${el.zIndex || 1};
+                    display: flex;
+                    flex-direction: ${el.flexDirection || 'row'};
+                    justify-content: ${el.justifyContent || 'center'};
+                    align-items: ${el.alignItems || 'center'};
+                    
+					font-family: ${fontFamily};
+                    font-size: ${fontSize};
+                    font-weight: ${fontWeight};
+                    font-style: ${fontStyle};
+                    text-decoration: ${textDecoration};
+
+                    ${el.borderWidth > 0 ? `border: ${el.borderWidth}px solid ${el.borderColor};` : ''}
+                    ${el.bgImage ? `background-image: url('${el.bgImage}');` : ''}
+                }
+                `;
+
+                let content = '';
+                if (el.htmlContent) {
+                    content = el.htmlContent;
+                } else if (el.bgImage) {
+                    content = '';
+                } else {
+                    content = el.text || '';
+                }
+
+                return `        ${startTag}${content}${endTag}\n`;
+            }
+
+            let htmlBody = `    <div class="main-container">\n`;
+
+            if (headerEl && headerEl.isVisible !== false) {
+                htmlBody += `        \n`;
+                htmlBody += buildElementHTML(headerEl, 'header');
+            }
+
+            if (mainElements.length > 0) {
+                htmlBody += `        \n        \n`;
+                htmlBody += `        <main>\n`;
+                
+                mainElements.forEach(el => {
+                    if (el.isVisible !== false) {
+                        htmlBody += buildElementHTML(el, 'section');
+                    }
+                });
+                
+                htmlBody += `        </main>\n`;
+            }
+
+            if (footerEl && footerEl.isVisible !== false) {
+                htmlBody += `        \n        \n`;
+                htmlBody += buildElementHTML(footerEl, 'footer');
+            }
+
+            htmlBody += `    </div>`;
+
+            const finalHTML = `
+            <!DOCTYPE html>
+            <html lang="de">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Exportierte Seite</title>
+                <link rel="stylesheet" href="style.css">
+                <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet">
+            </head>
+            <body>
+            ${htmlBody}
+            </body>
+            </html>`;
+
+            downloadFile(cssContent, 'style.css', 'text/css');
+            setTimeout(() => {
+                downloadFile(finalHTML, currentPage + '.html', 'text/html');
+            }, 200);
+        };
+
+        window.updateCanvasSettings = function() {
+            appState.canvasWidth = parseInt(canvasWInput.value) || 1440;
+            appState.canvasHeight = parseInt(canvasHInput.value) || 1200;
+            appState.marginPx = parseInt(marginInput.value) || 0;
+            applyCanvasSettings();
+            saveLocal();
+        }
+
+        function applyCanvasSettings() {
+            layoutCanvas.style.width = appState.canvasWidth + 'px';
+            layoutCanvas.style.height = appState.canvasHeight + 'px';
+            canvasWInput.value = appState.canvasWidth;
+            canvasHInput.value = appState.canvasHeight;
+            marginInput.value = appState.marginPx;
+
+            if (appState.marginPx > 0) {
+                marginGuides.style.borderLeft = "1px dashed rgba(255,99,71,0.5)";
+                marginGuides.style.borderRight = "1px dashed rgba(255,99,71,0.5)";
+                marginGuides.style.left = appState.marginPx + 'px';
+                marginGuides.style.right = appState.marginPx + 'px';
+            } else {
+                marginGuides.style.border = "none";
+            }
+        }
+
+        function saveLocal() {
+            appState.pages[currentPage] = appState.elements; 
+            try {
+                localStorage.setItem('myLayoutData_v5', JSON.stringify(appState));
+                statusMessage.textContent = "Gespeichert " + new Date().toLocaleTimeString();
+            } catch(e) { statusMessage.textContent = "Speicher voll. Bitte JSON exportieren!"; }
+        }
+
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        window.downloadJSON = function() {
+            downloadFile(JSON.stringify(appState, null, 2), 'layout_project.json', 'text/json');
+        }
+
+        window.uploadLayout = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let json = JSON.parse(e.target.result);
+                    appState = json;
+                    if(!appState.marginPx) appState.marginPx = 0;
+                    if (!appState.pages) {
+                        appState.pages = { 'index': appState.elements || {} };
+                    }
+                    let maxId = 0;
+                     Object.values(appState.pages).forEach(pageElements => {
+                        Object.keys(pageElements).forEach(k => {
+                            const num = parseInt(k.split('-')[1]);
+                            if (num > maxId) maxId = num;
+                        });
+                    });
+                    elementCounter = maxId;
+                    currentPage = 'index';
+                    appState.elements = appState.pages['index'];
+                    applyCanvasSettings();
+                    updatePageSelectUI();
+                    renderAll();
+                    saveLocal();
+                    statusMessage.textContent = "Geladen!";
+                } catch (err) { alert("Fehlerhafte Datei."); }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        window.clearCanvas = function() {
+            if(confirm("Reset?")) {
+                localStorage.removeItem('myLayoutData_v5');
+                location.reload();
+            }
+        }
+
+        function createExample() {
+            appState = { 
+                canvasWidth: 1440, canvasHeight: 1200, marginPx: 50, 
+                pages: { 'index': {} }
+            };
+            appState.pages['index']['el-1'] = { 
+                id: 'el-1', width: 1440, height: 100, top: 0, left: 0, 
+                bgColor: '#333', textColor: '#fff', borderColor: '#000', borderWidth: 0, 
+                text: 'HEADER', bgImage: '' 
+            };
+            currentPage = 'index';
+            appState.elements = appState.pages['index'];
+            elementCounter = 1;
+            applyCanvasSettings();
+            updatePageSelectUI();
+            renderAll();
+            saveLocal();
+        }
+
+        function init() {
+            const savedData = localStorage.getItem('myLayoutData_v5');
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    appState = parsed;
+                    if (!appState.pages) {
+                        appState.pages = { 'index': appState.elements || {} };
+                    }
+                    if(!appState.marginPx) appState.marginPx = 0;
+                    let maxId = 0;
+                    Object.values(appState.pages).forEach(pageElements => {
+                        Object.keys(pageElements).forEach(k => {
+                            const num = parseInt(k.split('-')[1]);
+                            if (num > maxId) maxId = num;
+                        });
+                    });
+                    elementCounter = maxId;
+                    currentPage = 'index';
+                    appState.elements = appState.pages['index'];
+                    applyCanvasSettings();
+                    updatePageSelectUI();
+                    renderAll();
+					applyLiveSettings();
+                } catch (e) { createExample(); }
+            } else { createExample(); }
+        }
+
+        init();
+    </script>
+</body>
+</html>
